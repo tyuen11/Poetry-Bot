@@ -7,25 +7,21 @@ import syllables as syllables_p
 import pronouncing
 
 
-##########################################################################################
-
-# Poetry bot generating sonnets
-# Sonnet: 14 lines of 4 parts
-# 3 quatrians and 1 couplet
-# Each quatrain has rhyme of ABAB that is independent of each other
-# End with a couplet that has the last word of both lines rhyme
-
-##########################################################################################
-
-
 def generate_markov_chain(mc, n_gram=2):
     """
-    Generates a markov chain and puts it in a dictionary
-    :param mc:
-    :param n_gram:
+    Generates a markov chain and puts it in a dictionary on the brown corpus
+    Note: As text increases so will this function's runtime
+    :param mc: dict
+    :param n_gram: int
     :return:
+
+    Examples
+    ---------
+    >>> generate_markov_chain({}, 2}
+         {'In': {'American': 1, 'other': 5, 'the': 51, 'a': 17, 'one': 2, 'that': 2, 'this': 10, 'most': 1, ... } }
+    >>> generate_markov_chain({}, 3}
     """
-    text = brown.words(categories="lore")
+    text = brown.words(categories=["lore", "romance", "humor"])
     regex = re.compile("^([A-Z])\w+([a-zA-Z]+[-'][a-zA-Z]+)|([a-zA-Z]+\.)|([a-zA-Z])+$")
     text = [word for word in text if regex.fullmatch(word)]
     n_grams = nltk.ngrams(text, n_gram)
@@ -49,14 +45,22 @@ def generate_markov_chain(mc, n_gram=2):
             else:
                 current_subtree[word] = ngram_counter[ng]
 
-
-def calulate_weights(mc, word):
+def calculate_weights(mc, word):
     """
     Calculates the weights of a word's markov chain
-    :param mc:
-    :param word:
-    :return:
-    """
+    :param mc: dict
+    :param word: string
+    :return: weights: list
+
+    Examples
+    ---------
+    >>> calculate_weights(markov_chain, 'investment')
+        [0.5 0.5]
+    >>> calculate_weights(markov_chain, 'income')
+    [0.08333333 0.08333333 0.08333333 0.08333333 0.08333333 0.16666667
+     0.08333333 0.08333333 0.08333333 0.08333333 0.08333333]
+     """
+
     weights = np.array(
         list(mc[word].values()),
         dtype=np.float64)
@@ -64,24 +68,33 @@ def calulate_weights(mc, word):
     return weights
 
 
-def generate_sentence(mc, sent_struc, start_node=None, num_syllables=10, a_rhyme=None, b_rhyme=None):
+def generate_sentence(mc, start_node=None, num_syllables=10, a_rhyme=None, b_rhyme=None):
     """
     Generates a sentence from the markov chain, mc
-    :param mc:
-    :param sent_struc:
-    :param start_node:
-    :param num_syllables:
-    :param a_rhyme:
-    :param b_rhyme:
-    :return:
+    :param mc: dict
+    :param sent_struc: list
+    :param start_node: string
+    :param num_syllables: int
+    :param a_rhyme: string
+    :param b_rhyme: string
+    :return: list
+
+    Examples
+    ---------
+    >>>generate_sentence(markov_chain)
+    ['in', 'the', 'nearly', 'all', 'the', 'patent', 'rights', 'in']
+    >>>generate_sentence(markov_chain, num_syllables=20)
+    ['were', 'referred', 'to', 'have', 'hastened', 'to', 'respond', 'slowly', 'emerging', 'language', 'barrier']
+
     """
+
     # Base case is when the number of syllables is reached
     if num_syllables is 0:
         return []
 
     # Get a random word to start the sentence
     start = random.choice(list(mc)) if start_node is None else start_node
-    weights = calulate_weights(mc, start)
+    weights = calculate_weights(mc, start)
     # print(sent_struc) if start_node is None else ()
     redo = True
     chosen_words = []  # words that don't fulfill syllable requirement
@@ -114,9 +127,9 @@ def generate_sentence(mc, sent_struc, start_node=None, num_syllables=10, a_rhyme
         # Case of only having one choice and it not being compatible for the sentence, get a new word to branch off of
         elif chosen_word not in mc.keys() or len(choices) is len(chosen_words):
             start = random.choice(list(mc))
-            weights = calulate_weights(mc, start)
+            weights = calculate_weights(mc, start)
             chosen_words = []
-    return [chosen_word] + generate_sentence(mc, sent_struc=sent_struc[1:], start_node=chosen_word,
+    return [chosen_word] + generate_sentence(mc, start_node=chosen_word,
                                              num_syllables=new_num_syllables, a_rhyme=a_rhyme, b_rhyme=b_rhyme)
 
 
@@ -125,34 +138,26 @@ def get_rhyme_word(mc, a_rhyme, b_rhyme, syllable):
     Gets a word of a certain syllable that rhymes with the a_rhyme or b_rhyme
     Calls rhyme_all_words()
 
-    :param mc:
-    :param a_rhyme:
-    :param b_rhyme:
-    :param syllable:
-    :return:
+    :param mc: dict
+    :param a_rhyme: string
+    :param b_rhyme: string
+    :param syllable: int
+    :return: chosen_word: list
+
+    Examples
+    --------
+    >>> get_rhyme_word(markov_chain, 'the', None, 2)
+    lightly
+    >>> get_rhyme_word(markov_chain, None, 'people', 3)
+    Seasonal
+
     """
-    # Run rhymes() which will return rhymes of a a_rhyme or b_rhyme
+    # Run rhyme_all_words()which will return rhymes of a a_rhyme or b_rhyme
     # filter out all rhymes that do not have syllable = syllable
     # Calculate the mc of the filtered rhymes and their probabilities
     # Randomly pick a rhyme based on its probability
 
     rhyme = a_rhyme if b_rhyme is None else b_rhyme
-    # rhymes_prob = rhymes(rhyme, mc)
-    # rhymes_prob = {r: rhymes_prob[r] for r in rhymes_prob if syllables_p.estimate(r) == syllable}  # dict of rhymes and their probabilities
-
-    # *
-    # chosen_word = random.choice(list(rhymes_prob.keys()))
-    # return chosen_word
-
-    # weights = np.array(
-    #     list(rhymes_prob.values()),
-    #     dtype=np.float64)
-    # weights /= weights.sum()
-
-    # choices = list(rhymes_prob.keys())
-    # print('rhyme choices', choices)
-    # chosen_word = "@" if not choices else np.random.choice(choices, None, p=weights)  # case where we can find no rhyme in the mc
-    # Could fix this by randomly choosing a rhyme from rhymes_prob.keys() [code for this at *] and desired POS
 
     chosen_word = "@"
     rhymes_prob = rhymes_all_words(rhyme, mc)
@@ -163,13 +168,20 @@ def get_rhyme_word(mc, a_rhyme, b_rhyme, syllable):
         pass
     return chosen_word
 
-
 def rhymes_all_words(word, mc):
     """
     Look for all words that rhyme with word in our markov chain
-    :param word:
-    :param mc:
-    :return: rhyme_list
+    :param word: string
+    :param mc: dict
+    :return: rhyme_list: list
+
+    Examples
+    --------
+    >>>rhymes_all_words('people', markov_chain)
+    ['adorable', 'example', 'little', 'professional', 'people', 'sentimental', 'mutual'... ]
+
+    >>>rhymes_all_words('5-foot', markov_chain)
+    ['put', 'underfoot', 'foot']
     """
     if "-" in word:
         word = word.split("-")[-1]
@@ -205,91 +217,20 @@ def rhymes_all_words(word, mc):
                     break
     return rhyme_list
 
-
-def rhymes(wd, mc):
-    word = wd
-    # case that there is "-" in the word
-    if "-" in word:
-        word = wd.split("-")[-1]
-    # find all words that rhyme with word in words mc
-    # loop through all of mc's keys of only words to see if their last pronunciation is the same as word
-    regex = re.compile("([a-zA-Z]+[-'][a-zA-Z]+)|([a-zA-Z]+\.)")
-    words = mc[wd]
-    # filtering all punctuation
-    words = {w: words[w] for w in words if w.isalpha()}
-
-    # word_pron = [pron for w, pron in cmudict.entries() if w == word][0]
-
-    word_pron = pronouncing.phones_for_word(word)[0].split()
-
-    index = -1
-    for pron in reversed(word_pron):
-        if not pron.isalpha():
-            index = word_pron.index(pron)
-            break
-
-    rhyme_list = {}
-    for w in words:  # look at all words in word mc
-        if pronouncing.phones_for_word(w):  # if we can get the words pron
-            w_pron = pronouncing.phones_for_word(w)[0].split()
-            if len(w_pron) > (len(word_pron) - index) and w_pron[index - len(word_pron):] == word_pron[
-                                                                                             index - len(word_pron):]:
-                rhyme_list[w] = words[w]
-
-    return rhyme_list
-
-
-def get_random_sent_struc(sents):
-    regex = re.compile("^([A-Z])\w+([a-zA-Z]+[-'][a-zA-Z]+)|([a-zA-Z]+\.)|([a-zA-Z])+$")
-    sent = random.choice(sents)
-    sent = [s for s in sent if regex.match(s)]
-    sent = nltk.word_tokenize(' '.join(sent))
-    return nltk.pos_tag(sent)
-
-
-def generate_abab(mc, sents):
-    """
-    Create a quatrain in ABAB form
-    :param mc:
-    :param sents:
-    :return:
-    """
-
-    # start with a random word that will follow the markov chain
-    # traversing the path in the markov chain will reflect the POS sentence structure
-
-    # keep track of the last word in the sentence
-    # if second A or B, make sure the last word rhymes with the first
-    # keep track of the number of syllables
-    # might need backtracking to get the right number of syllables
-    a1 = generate_sentence(mc, get_random_sent_struc(sents))
-    a_rhyme = a1[-1]
-    b1 = generate_sentence(mc, get_random_sent_struc(sents), a_rhyme=a_rhyme)
-    b_rhyme = b1[-1]
-    a2 = generate_sentence(mc, get_random_sent_struc(sents), a_rhyme=a_rhyme, b_rhyme=b_rhyme)
-    b2 = generate_sentence(mc, get_random_sent_struc(sents), b_rhyme=b_rhyme)
-
-    return ' '.join(a1), ' '.join(b1), ' '.join(a2), ' '.join(b2),
-
-
-def generate_couplet(mc, sents):
-    """
-    Create a sonnet
-    :param sents:
-    :param mc:
-    :return:
-    """
-    first_sent = generate_sentence(mc, get_random_sent_struc(sents))
-    a_rhyme = first_sent[-1]
-    second_sent = generate_sentence(mc, get_random_sent_struc(sents), a_rhyme=a_rhyme, b_rhyme="placeholder")
-    return ' '.join(first_sent), ' '.join(second_sent)
-
-
 def syllables(word):
     """
     Get the number of syllables in a word
-    :param word:
-    :return:
+    :param word: string
+    :return: number_syllables: int
+
+    >>> syllables('dog')
+    1
+    >>> syllables('5-foot')
+    2
+    >>> syllables('mr.')
+    2
+    >>> syllables('ms.')
+    1
     """
     consonants = ['A', 'E', 'I', 'O', 'U']
     try:
@@ -312,23 +253,81 @@ def syllables(word):
         number_syllables = len(regex.findall(word_pron))
         return number_syllables
 
+def generate_abab(mc):
+    """
+    Create a quatrain in ABAB form
+    :param mc: dict
+    :return: tuple
+
+    Examples
+    --------
+    >>> generate_abab_(markov_chain)
+    Before audiences began it is.
+    Everything was found a wound One of their.
+    Their needs only should expect But his Does.
+    At all six novel The strings were eased bear.
+    Were reinstated at the fact wreck a.
+    A little farther along the villa.
+    """
+
+    # start with a random word that will follow the markov chain
+    # traversing the path in the markov chain will reflect the POS sentence structure
+
+    # keep track of the last word in the sentence
+    # if second A or B, make sure the last word rhymes with the first
+    # keep track of the number of syllables
+    # might need backtracking to get the right number of syllables
+    a1 = generate_sentence(mc)
+    a_rhyme = a1[-1]
+    b1 = generate_sentence(mc, a_rhyme=a_rhyme)
+    b_rhyme = b1[-1]
+    a2 = generate_sentence(mc, a_rhyme=a_rhyme, b_rhyme=b_rhyme)
+    b2 = generate_sentence(mc, b_rhyme=b_rhyme)
+
+    return ' '.join(a1).capitalize(), ' '.join(b1).capitalize(), ' '.join(a2).capitalize(), ' '.join(
+        b2).capitalize(),
+
+def generate_couplet(mc):
+    """
+    Create a sonnet
+    :param mc: dict
+    :return: tuple
+
+    Examples
+    --------
+    >>> generate_couplet(markov_chain)
+    Determines whether a short time and was.
+    Of the island as she called her Causes.
+    """
+    first_sent = generate_sentence(mc)
+    a_rhyme = first_sent[-1]
+    second_sent = generate_sentence(mc, a_rhyme=a_rhyme, b_rhyme="placeholder")
+    return ' '.join(first_sent).capitalize(), ' '.join(second_sent).capitalize()
+
 
 def main():
-    sentences = [sent for sent in gutenberg.sents('austen-emma.txt')[3:] if 10 <= len(sent) <= 15]
+    """
+    """
     markov_chain = dict()
-    generate_markov_chain(markov_chain)
-
-    print("Enter '1' for sonnet. Enter '2' for couplet.")
+    generate_markov_chain(markov_chain, 2)
+    print("Enter 1 for a sonnet \n"
+          "Enter 2 for a quatrain \n"
+          "Enter 3 for couplet")
     user_input = input()
-    if user_input is 1:
-        a, b, c, d = generate_abab(markov_chain, sentences)
+    print()
+    if user_input is '1':
+        for x in range(3):
+            a, b, c, d = generate_abab(markov_chain)
+            print(a + '.' + "\n" + b + '.' + "\n" + c + '.' + "\n" + d + '.')
+        a, b = generate_couplet(markov_chain)
+        print(a + '.' + "\n" + b + '.')
+    elif user_input is '2':
+        a, b, c, d = generate_abab(markov_chain)
         print(a + '.' + "\n" + b + '.' + "\n" + c + '.' + "\n" + d + '.')
-        a, b = generate_couplet(markov_chain, sentences)
+        a, b = generate_couplet(markov_chain)
+    else:
+        a, b = generate_couplet(markov_chain)
         print(a + '.' + "\n" + b + '.' + "\n")
-    elif user_input is 2:
-        a, b = generate_couplet(markov_chain, sentences)
-        print(a + '.' + "\n" + b + '.' + "\n")
-
 
 if __name__ == "__main__":
     main()
